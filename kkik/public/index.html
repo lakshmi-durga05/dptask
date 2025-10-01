@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Task Queue System</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="container">
+    <h1>Task Queue System</h1>
+    <p class="muted">BullMQ + Express + Bull Board</p>
+    <nav>
+      <a class="button" href="/dashboard" target="_blank">Open Dashboard</a>
+      <a class="button" href="/health" target="_blank">Health</a>
+    </nav>
+  </header>
+
+  <main class="container grid">
+    <section class="card">
+      <h2>Enqueue Immediate Job</h2>
+      <form id="enqueue-form">
+        <label>
+          Type
+          <select name="type">
+            <option value="email">email</option>
+            <option value="report">report</option>
+          </select>
+        </label>
+        <label>
+          Attempts
+          <input type="number" name="attempts" value="3" min="1" />
+        </label>
+        <label>
+          Backoff (ms)
+          <input type="number" name="backoffMs" value="2000" min="0" />
+        </label>
+        <button type="submit" class="primary">Enqueue</button>
+      </form>
+      <pre id="enqueue-result" class="result"></pre>
+    </section>
+
+    <section class="card">
+      <h2>Schedule Job</h2>
+      <form id="schedule-form">
+        <label>
+          Type
+          <select name="type">
+            <option value="report">report</option>
+            <option value="email">email</option>
+          </select>
+        </label>
+        <label>
+          Delay (ms)
+          <input type="number" name="delayMs" value="5000" min="0" />
+        </label>
+        <label>
+          Or run at (ISO)
+          <input type="text" name="runAt" placeholder="2025-10-01T10:00:00Z" />
+        </label>
+        <button type="submit" class="primary">Schedule</button>
+      </form>
+      <pre id="schedule-result" class="result"></pre>
+    </section>
+
+    <section class="card">
+      <h2>Queue Stats</h2>
+      <button id="refresh" class="secondary">Refresh</button>
+      <pre id="stats" class="result"></pre>
+    </section>
+  </main>
+
+  <footer class="container muted">
+    <small>Demo. View jobs in the <a href="/dashboard" target="_blank">Dashboard</a>.</small>
+  </footer>
+
+  <script>
+    async function post(url, body) {
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      return res.json();
+    }
+    async function get(url) {
+      const res = await fetch(url);
+      return res.json();
+    }
+
+    document.getElementById('enqueue-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const payload = {
+        type: form.type.value,
+        attempts: Number(form.attempts.value || 3),
+        backoffMs: Number(form.backoffMs.value || 0),
+        payload: form.type.value === 'email' ? { to: 'user@example.com' } : { format: 'pdf' },
+      };
+      const out = await post('/api/enqueue', payload);
+      document.getElementById('enqueue-result').textContent = JSON.stringify(out, null, 2);
+    });
+
+    document.getElementById('schedule-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const payload = {
+        type: form.type.value,
+        delayMs: form.delayMs.value ? Number(form.delayMs.value) : undefined,
+        runAt: form.runAt.value || undefined,
+        payload: form.type.value === 'report' ? { format: 'xlsx' } : { to: 'user@example.com' },
+      };
+      const out = await post('/api/schedule', payload);
+      document.getElementById('schedule-result').textContent = JSON.stringify(out, null, 2);
+    });
+
+    async function refresh() {
+      const stats = await get('/api/queues');
+      document.getElementById('stats').textContent = JSON.stringify(stats, null, 2);
+    }
+    document.getElementById('refresh').addEventListener('click', refresh);
+    refresh();
+  </script>
+</body>
+</html>
